@@ -167,10 +167,7 @@ class DeviceManager {
     @SuppressLint("MissingPermission")
     fun readCharacteristic(characteristic: BluetoothGattCharacteristic) {
         bluetoothGatt?.let { gatt ->
-            var myThread = Thread(Runnable(){
-                val res = gatt.readCharacteristic(characteristic)
-            })
-            myThread.start()
+            gatt.readCharacteristic(characteristic)
             } ?: run {
             Log.d(TAG, "bluetoothGatt is not available")
             return
