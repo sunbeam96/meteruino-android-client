@@ -1,6 +1,8 @@
 <resources>
     <string name="app_name">Metruino</string>
     <string name="connect_button_text">Connect</string>
+    <string name="refresh_button_text">Refresh</string>
+    <string name="freeze_button_text">Freeze</string>
     <string name="connect_button_snackbar">Setting up a connection with device</string>
     <string name="connect_button_unavailability">Bluetooth is not available</string>
 </resources>
