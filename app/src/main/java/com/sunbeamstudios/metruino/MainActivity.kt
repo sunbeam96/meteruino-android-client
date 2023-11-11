@@ -24,7 +24,8 @@ import com.github.mikephil.charting.data.LineDataSet
 import com.google.android.material.snackbar.Snackbar
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.util.UUID
+import java.nio.charset.Charset
+import java.util.Arrays
 
 class MainActivity : AppCompatActivity() {
     private val TAG = "MainActivity"
@@ -33,13 +34,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var bluetoothLeScanner: BluetoothLeScanner
     private val deviceManager = DeviceManager()
     //
-    val speedCharUuid = UUID.fromString("0000fff1-0000-1000-8000-00805f9b34fb")
-    val accelXCharUuid = UUID.fromString("0000aa10-0000-1000-8000-00805f9b34fb")
-    val accelYCharUuid = UUID.fromString("00002b3f-0000-1000-8000-00805f9b34fb")
-    val accelZCharUuid = UUID.fromString("0000183e-0000-1000-8000-00805f9b34fb")
-    val gyroXCharUuid = UUID.fromString("0000183a-0000-1000-8000-00805f9b34fb")
-    val gyroYCharUuid = UUID.fromString("00002a2f-0000-1000-8000-00805f9b34fb")
-    val gyroZCharUuid = UUID.fromString("00001a3b-0000-1000-8000-00805f9b34fb")
     var speedValsEntryList = ArrayList<Entry>()
     var gyroXValsEntryList = ArrayList<Entry>()
     var gyroYValsEntryList = ArrayList<Entry>()
@@ -47,11 +41,9 @@ class MainActivity : AppCompatActivity() {
     var accelXValsEntryList = ArrayList<Entry>()
     var accelYValsEntryList = ArrayList<Entry>()
     var accelZValsEntryList = ArrayList<Entry>()
-    val startTime: Long = System.currentTimeMillis()
+    private var startTime: Long = System.currentTimeMillis()
+    private var isCollectionFreezed = false
 
-    enum class Axis{
-        X, Y, Z
-    }
     enum class MeasType{
         Speed, Accelerometer, Gyroscope
     }
@@ -118,35 +110,30 @@ class MainActivity : AppCompatActivity() {
         deviceManager.connectToMetruinoGatt(this)
     }
 
-    private fun byteArrayToFloat(inputByteArray: ByteArray): Float{
-        if (inputByteArray.size == 1)
-            return inputByteArray[0].toFloat()
-        return ByteBuffer.wrap(inputByteArray).order(ByteOrder.LITTLE_ENDIAN).float
-    }
-
-    private fun updateGyroChart(gyroData: ByteArray, axis: Axis){
-        var dataEntry = Entry(getMeasurementTime(), byteArrayToFloat(gyroData))
+    private fun updateGyroChart(gyroData: List<Char>){
+        val separator = ""
+        val gyroX = gyroData.slice(0..3).joinToString(separator).replace(" ", "").toFloat()
+        val gyroY = gyroData.slice(4..7).joinToString(separator).replace(" ", "").toFloat()
+        val gyroZ = gyroData.slice(8..11).joinToString(separator).replace(" ", "").toFloat()
+        var xDataEntry = Entry(getMeasurementTime(), gyroX)
+        var yDataEntry = Entry(getMeasurementTime(), gyroY)
+        var zDataEntry = Entry(getMeasurementTime(), gyroZ)
         val lineData = LineData()
-        if (axis == Axis.X){
-            gyroXValsEntryList.add(dataEntry)
-        }
-        if (axis == Axis.Y){
-            gyroYValsEntryList.add(dataEntry)
-        }
-        if (axis == Axis.Z){
-            gyroZValsEntryList.add(dataEntry)
-        }
-        val dataSetX: LineDataSet = LineDataSet(gyroXValsEntryList, "Gyro X")
+        gyroXValsEntryList.add(xDataEntry)
+        gyroYValsEntryList.add(yDataEntry)
+        gyroZValsEntryList.add(zDataEntry)
+
+        val dataSetX = LineDataSet(gyroXValsEntryList, "Gyro X")
         dataSetX.color = Color.RED
         dataSetX.valueTextColor = Color.BLUE
         lineData.addDataSet(dataSetX)
 
-        val dataSetY: LineDataSet = LineDataSet(gyroYValsEntryList, "Gyro Y")
-        dataSetY.color = Color.GREEN
+        val dataSetY = LineDataSet(gyroYValsEntryList, "Gyro Y")
+        dataSetY.color = Color.BLACK
         dataSetY.valueTextColor = Color.YELLOW
         lineData.addDataSet(dataSetY)
 
-        val dataSetZ: LineDataSet = LineDataSet(gyroZValsEntryList, "Gyro Z")
+        val dataSetZ = LineDataSet(gyroZValsEntryList, "Gyro Z")
         dataSetZ.color = Color.CYAN
         dataSetZ.valueTextColor = Color.GRAY
         lineData.addDataSet(dataSetZ)
@@ -154,38 +141,42 @@ class MainActivity : AppCompatActivity() {
         onMeasurementUpdate(lineData, MeasType.Gyroscope)
     }
 
-    private fun updateAccelChart(accelData: ByteArray, axis: Axis){
-        var dataEntry = Entry(getMeasurementTime(), byteArrayToFloat(accelData))
+    private fun updateAccelChart(accelData: List<Char>){
+        val separator = ""
+        val accelX = accelData.slice(0..3).joinToString(separator).replace(" ", "").toFloat()
+        val accelY = accelData.slice(4..7).joinToString(separator).replace(" ", "").toFloat()
+        val accelZ = accelData.slice(8..11).joinToString(separator).replace(" ", "").toFloat()
+        var xDataEntry = Entry(getMeasurementTime(), accelX)
+        var yDataEntry = Entry(getMeasurementTime(), accelY)
+        var zDataEntry = Entry(getMeasurementTime(), accelZ)
         val lineData = LineData()
-        if (axis == Axis.X){
-            accelXValsEntryList.add(dataEntry)
-        }
-        if (axis == Axis.Y){
-            accelYValsEntryList.add(dataEntry)
-        }
-        if (axis == Axis.Z){
-            accelZValsEntryList.add(dataEntry)
-        }
+        accelXValsEntryList.add(xDataEntry)
+        accelYValsEntryList.add(yDataEntry)
+        accelZValsEntryList.add(zDataEntry)
+
         val dataSetX: LineDataSet = LineDataSet(accelXValsEntryList, "Accel X")
         dataSetX.color = Color.RED
         dataSetX.valueTextColor = Color.BLUE
+        dataSetX.circleColors = listOf(Color.RED)
         lineData.addDataSet(dataSetX)
 
         val dataSetY: LineDataSet = LineDataSet(accelYValsEntryList, "Accel Y")
-        dataSetY.color = Color.GREEN
+        dataSetY.color = Color.BLACK
         dataSetY.valueTextColor = Color.YELLOW
+        dataSetY. = listOf(Color.BLACK)
         lineData.addDataSet(dataSetY)
 
         val dataSetZ: LineDataSet = LineDataSet(accelZValsEntryList, "Accel Z")
         dataSetZ.color = Color.CYAN
         dataSetZ.valueTextColor = Color.GRAY
+        dataSetZ.circleColors = listOf(Color.CYAN)
         lineData.addDataSet(dataSetZ)
 
         onMeasurementUpdate(lineData, MeasType.Accelerometer)
     }
 
-    private fun updateSpeedChart(speedData: ByteArray){
-        var dataEntry = Entry(getMeasurementTime(), byteArrayToFloat(speedData))
+    private fun updateSpeedChart(speedData: Float){
+        var dataEntry = Entry(getMeasurementTime(), speedData)
         speedValsEntryList.add(dataEntry)
         val dataSet: LineDataSet = LineDataSet(speedValsEntryList, "Speed in kmh")
         dataSet.color = Color.RED
@@ -194,16 +185,33 @@ class MainActivity : AppCompatActivity() {
         onMeasurementUpdate(lineData, MeasType.Speed)
     }
 
+    private fun byteArrayToCharArray(collectiveData: ByteArray) : CharArray{
+        val charset = Charset.forName("UTF-8")
+        val charBuffer = charset.decode(ByteBuffer.wrap(collectiveData))
+        return Arrays.copyOf(charBuffer.array(), charBuffer.limit())
+    }
+
+    private fun updateChartViaCollectiveCharacteristic(collectiveData: ByteArray){
+        val charArray = byteArrayToCharArray(collectiveData)
+        val separator = ""
+
+        //SPEED
+        val speedArray = charArray.slice(0..2)
+        val speed = speedArray.joinToString(separator).replace(" ", "").toFloat()
+        updateSpeedChart(speed)
+
+        //ACCELEROMETER
+        val accelArray = charArray.slice(3..14)
+        updateAccelChart(accelArray)
+
+        //GYROSCOPE
+        val gyroArray = charArray.slice(15..26)
+        updateGyroChart(gyroArray)
+    }
+
     private fun handleCharacteristicRead(characteristic: BluetoothGattCharacteristic, values: ByteArray){
-        when (characteristic.uuid) {
-            speedCharUuid -> updateSpeedChart(values)
-            gyroXCharUuid -> updateGyroChart(values, Axis.X)
-            gyroYCharUuid -> updateGyroChart(values, Axis.Y)
-            gyroZCharUuid -> updateGyroChart(values, Axis.Z)
-            accelXCharUuid -> updateAccelChart(values, Axis.X)
-            accelYCharUuid -> updateAccelChart(values, Axis.Y)
-            accelZCharUuid -> updateAccelChart(values, Axis.Z)
-        }
+        if (!isCollectionFreezed)
+            updateChartViaCollectiveCharacteristic(values)
     }
 
     private fun connectToDevice(){
@@ -228,5 +236,21 @@ class MainActivity : AppCompatActivity() {
             return
         }
         connectToDevice()
+    }
+
+    fun onMeasurementStopTriggerButtonClick(view: View){
+        isCollectionFreezed = !isCollectionFreezed
+    }
+
+    fun onRefreshButtonClick(view: View){
+        Log.i(TAG, "Refresh button clicked.")
+        speedValsEntryList.clear()
+        gyroXValsEntryList.clear()
+        gyroYValsEntryList.clear()
+        gyroZValsEntryList.clear()
+        accelXValsEntryList.clear()
+        accelYValsEntryList.clear()
+        accelZValsEntryList.clear()
+        startTime = System.currentTimeMillis()
     }
 }
