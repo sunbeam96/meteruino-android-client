@@ -5,6 +5,7 @@ package com.sunbeamstudios.metruino
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
+import android.bluetooth.BluetoothGatt.CONNECTION_PRIORITY_HIGH
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothProfile
@@ -32,9 +33,8 @@ class DeviceManager {
     private lateinit var updaterCallback: (BluetoothGattCharacteristic, ByteArray) -> Unit
     private lateinit var connectionCallback: () -> Unit
     private lateinit var measurementStartCallback: () -> Unit
-    val meterService: UUID = UUID.fromString("89566a2e-177b-11ee-be56-0242ac120002")
+    val meterService: UUID = UUID.fromString("00002000-0000-1000-8000-00805f9b34fb")
     var characteristicsToReadList: List<BluetoothGattCharacteristic> = listOf()
-    var characteristicReadIterator = 0
     private var connected = false
 
     @SuppressLint("MissingPermission")
@@ -58,7 +58,9 @@ class DeviceManager {
     @SuppressLint("MissingPermission")
     fun connectToMetruinoGatt(context: Context) {
         Log.i(TAG, "Attempting GATT connection")
-        bluetoothGatt = currentMetruino?.connectGatt(context, true, bluetoothGattCallback)
+        bluetoothGatt = currentMetruino?.connectGatt(context, false, bluetoothGattCallback)
+        bluetoothGatt?.requestConnectionPriority(CONNECTION_PRIORITY_HIGH)
+        bluetoothGatt?.requestMtu(50)
     }
 
     @SuppressLint("MissingPermission")
@@ -109,7 +111,10 @@ class DeviceManager {
                 // successfully connected to the GATT Server
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 connected = false
-                Log.i(TAG, "Device state changed to disconnected")
+                Log.i(TAG, "Device state changed to disconnected. Attempting connection.")
+                gatt?.connect()
+                gatt?.requestConnectionPriority(CONNECTION_PRIORITY_HIGH)
+                gatt?.requestMtu(50)
             }
         }
 
@@ -121,7 +126,7 @@ class DeviceManager {
                     if (service.uuid != meterService)
                         continue
                     characteristicsToReadList = service.characteristics
-                    readCharacteristic(characteristicsToReadList[characteristicReadIterator])
+                    readCharacteristic(characteristicsToReadList[0])
                 }
             } else {
                 Log.w(TAG, "onServicesDiscovered received: $status")
@@ -145,10 +150,6 @@ class DeviceManager {
             status: Int
         ) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                characteristicReadIterator++
-                if (characteristicReadIterator == characteristicsToReadList.size)
-                    characteristicReadIterator = 0
-
                 if (value?.isNotEmpty() == true) {
                     updaterCallback(characteristic, value)
                 }
@@ -156,7 +157,7 @@ class DeviceManager {
                     Log.w(TAG, "Empty characteristic value. Something wrong with device.")
                 }
                 if (connected)
-                    readCharacteristic(characteristicsToReadList[characteristicReadIterator])
+                    readCharacteristic(characteristicsToReadList[0])
             }
             else{
                 connected = false
@@ -167,7 +168,10 @@ class DeviceManager {
     @SuppressLint("MissingPermission")
     fun readCharacteristic(characteristic: BluetoothGattCharacteristic) {
         bluetoothGatt?.let { gatt ->
-            gatt.readCharacteristic(characteristic)
+            var myThread = Thread(Runnable(){
+                gatt.readCharacteristic(characteristic)
+            })
+            myThread.start()
             } ?: run {
             Log.d(TAG, "bluetoothGatt is not available")
             return
