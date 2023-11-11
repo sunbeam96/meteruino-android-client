@@ -157,19 +157,16 @@ class MainActivity : AppCompatActivity() {
         val dataSetX: LineDataSet = LineDataSet(accelXValsEntryList, "Accel X")
         dataSetX.color = Color.RED
         dataSetX.valueTextColor = Color.BLUE
-        dataSetX.circleColors = listOf(Color.RED)
         lineData.addDataSet(dataSetX)
 
         val dataSetY: LineDataSet = LineDataSet(accelYValsEntryList, "Accel Y")
         dataSetY.color = Color.BLACK
         dataSetY.valueTextColor = Color.YELLOW
-        dataSetY. = listOf(Color.BLACK)
         lineData.addDataSet(dataSetY)
 
         val dataSetZ: LineDataSet = LineDataSet(accelZValsEntryList, "Accel Z")
         dataSetZ.color = Color.CYAN
         dataSetZ.valueTextColor = Color.GRAY
-        dataSetZ.circleColors = listOf(Color.CYAN)
         lineData.addDataSet(dataSetZ)
 
         onMeasurementUpdate(lineData, MeasType.Accelerometer)
