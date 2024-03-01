@@ -81,6 +81,8 @@ class MainActivity : AppCompatActivity() {
             Log.d(TAG, "Bluetooth adapter not enabled")
         }
         bluetoothLeScanner = bluetoothAdapter.bluetoothLeScanner
+        deviceManager.registerConnectionCallback(this::afterScanCallback)
+        deviceManager!!.registerUpdaterCallback(this::handleCharacteristicRead)
     }
 
     private fun getMeasurementTime(): Float{
@@ -211,10 +213,8 @@ class MainActivity : AppCompatActivity() {
             updateChartViaCollectiveCharacteristic(values)
     }
 
-    private fun connectToDevice(){
+    private fun scanForDevice(){
         Log.d(TAG, "Scanning for BLE device")
-        deviceManager.registerConnectionCallback(this::afterScanCallback)
-        deviceManager!!.registerUpdaterCallback(this::handleCharacteristicRead)
         deviceManager.scanLeDevices(bluetoothLeScanner)
     }
 
@@ -232,7 +232,7 @@ class MainActivity : AppCompatActivity() {
             snackbarBtUnavailable.show()
             return
         }
-        connectToDevice()
+        scanForDevice()
     }
 
     fun onMeasurementStopTriggerButtonClick(view: View){
